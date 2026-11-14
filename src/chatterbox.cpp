@@ -297,7 +297,7 @@ static void fetch_and_play_tts(beep_boop_chatterbox_data *cb, const std::string 
             obs_source_add_active_child(cb->parent, cb->media_source);
             // Use OBS's native source-volume control on the generated WAV playback.
             obs_source_set_volume(cb->media_source, cb->volume.load());
-            obs_source_set_monitoring_enabled(cb->media_source, true);
+            obs_source_set_monitoring_type(cb->media_source, OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT);
             obs_source_media_restart(cb->media_source);
         }
     }

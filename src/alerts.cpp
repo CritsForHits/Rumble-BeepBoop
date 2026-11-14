@@ -87,7 +87,7 @@ void alerts_stop(beep_boop_alerts_data *alerts)
     for (int i = 0; i < ALERT_COUNT; ++i) {
         if (alerts->media_sources[i]) {
             obs_source_media_stop(alerts->media_sources[i]);
-            obs_source_set_monitoring_enabled(alerts->media_sources[i], false);
+            obs_source_set_monitoring_type(alerts->media_sources[i], OBS_MONITORING_TYPE_NONE);
         }
     }
 }
@@ -191,7 +191,7 @@ bool alerts_play(beep_boop_alerts_data *alerts, beep_boop_alert_type type)
     obs_data_t *media = create_media_settings(alerts->media_paths[type]);
     obs_source_update(source, media);
     obs_data_release(media);
-    obs_source_set_monitoring_enabled(source, true);
+    obs_source_set_monitoring_type(source, OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT);
     obs_source_media_restart(source);
     return true;
 }
@@ -258,7 +258,7 @@ void alerts_init(beep_boop_alerts_data *alerts, obs_source_t *parent, obs_data_t
         obs_data_release(media);
         if (alerts->media_sources[i]) {
             obs_source_add_active_child(parent, alerts->media_sources[i]);
-            obs_source_set_monitoring_enabled(alerts->media_sources[i], true);
+            obs_source_set_monitoring_type(alerts->media_sources[i], OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT);
             obs_source_media_stop(alerts->media_sources[i]);
         }
     }
@@ -396,7 +396,7 @@ void alerts_video_render(beep_boop_alerts_data *alerts)
             alerts->current_loop_iteration.store(current + 1);
             alerts->loop_audio_muted.store(true);
             alerts->media_started.store(false);
-            obs_source_set_monitoring_enabled(source, false);
+            obs_source_set_monitoring_type(source, OBS_MONITORING_TYPE_NONE);
             obs_source_media_restart(source);
             return;
         }
@@ -483,7 +483,7 @@ bool alerts_audio_render(beep_boop_alerts_data *alerts, uint64_t *ts_out,
         alerts->media_started.store(false);
         obs_source_t *expired_source = alerts->media_sources[index];
         if (expired_source) {
-            obs_source_set_monitoring_enabled(expired_source, false);
+            obs_source_set_monitoring_type(expired_source, OBS_MONITORING_TYPE_NONE);
             obs_source_media_stop(expired_source);
         }
         return false;
