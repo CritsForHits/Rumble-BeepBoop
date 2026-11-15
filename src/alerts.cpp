@@ -22,7 +22,13 @@ static obs_source_t *create_alert_text_source(const char *name, const std::strin
     obs_data_set_int(settings, "color1", color);
     obs_data_set_int(settings, "color2", color);
     obs_data_set_bool(settings, "outline", true);
-    obs_source_t *source = obs_source_create_private("text_ft2_source", name, settings);
+    obs_source_t *source = obs_source_t *src = obs_source_create_private(
+    #ifdef _WIN32
+        "text_gdiplus",
+    #else
+        "text_ft2_source",
+    #endif
+        name, settings);
     obs_data_release(font);
     obs_data_release(settings);
     return source;
