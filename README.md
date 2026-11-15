@@ -50,6 +50,7 @@ Installing: run the powershell script (Windows - ps1) or the bash script (Linux 
 If powershell script fails, try in your powershell terminal:
 	.\install_chatterbox.ps1 -UpdateRepo
 	Set-ExecutionPolicy -Scope Process Bypass
+
 If bash script fails, try in your terminal:
 	chmod +x install_chatterbox.sh
 
