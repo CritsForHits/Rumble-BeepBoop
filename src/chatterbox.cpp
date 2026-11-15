@@ -424,26 +424,35 @@ void chatterbox_update(beep_boop_chatterbox_data *cb, obs_data_t *settings) {
         }
         if (cb->parent) obs_source_update_properties(cb->parent);
     }
+
     cb->enable_chat_vo = obs_data_get_bool(settings, "enable_chat_vo");
     cb->enable_rant_vo = obs_data_get_bool(settings, "enable_rant_vo");
     cb->language = obs_data_get_string(settings, "chatterbox_language");
     cb->temperature = std::clamp((float)obs_data_get_double(settings, "chatterbox_temperature"), 0.1f, 1.0f);
     cb->exaggeration = std::clamp((float)obs_data_get_double(settings, "chatterbox_exaggeration"), 0.1f, 2.0f);
+
     const float volume = std::clamp((float)obs_data_get_double(settings, "chatterbox_volume"), 0.1f, 3.0f);
     cb->volume.store(volume);
-    std::lock_guard<std::mutex> lock(cb->queue_mutex);
-    cb->tts_buffer = std::clamp(
-        (int)obs_data_get_int(settings, "tts_buffer"),
-        1, 10
-    );
+
+    {
+        std::lock_guard<std::mutex> lock(cb->queue_mutex);
+        cb->tts_buffer = std::clamp(
+            (int)obs_data_get_int(settings, "tts_buffer"),
+            1, 10
+        );
+    }
+
     {
         std::lock_guard<std::mutex> lock(cb->source_mutex);
         if (cb->media_source)
             obs_source_set_volume(cb->media_source, volume);
     }
+
     cb->chat_voice = obs_data_get_string(settings, "chat_voice");
     cb->rant_voice = obs_data_get_string(settings, "rant_voice");
-    if (url_changed) chatterbox_start_worker(cb, fetch_chatterbox_voices, cb);
+
+    if (url_changed)
+        chatterbox_start_worker(cb, fetch_chatterbox_voices, cb);
 }
 
 void chatterbox_get_defaults(obs_data_t *settings) {
