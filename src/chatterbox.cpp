@@ -251,6 +251,7 @@ static void fetch_and_play_tts(beep_boop_chatterbox_data *cb, const std::string 
     const bool request_ok = code == CURLE_OK && status >= 200 && status < 300;
     if (configured_url == chatterbox_get_url(cb))
         set_chatterbox_connected(cb, request_ok);
+    bool playback_started = false;
     if (request_ok && !res.body.empty()) {
         // Save generated audio in OBS's user configuration directory instead
         // of relying on the process working directory.
@@ -299,8 +300,91 @@ static void fetch_and_play_tts(beep_boop_chatterbox_data *cb, const std::string 
             obs_source_set_volume(cb->media_source, cb->volume.load());
             obs_source_set_monitoring_type(cb->media_source, OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT);
             obs_source_media_restart(cb->media_source);
+            playback_started = true;
         }
     }
+    // Wait until OBS has actually started and finished playing the audio.
+    if (playback_started) {
+        bool saw_playing = false;
+
+        const auto timeout = std::chrono::steady_clock::now() +
+                         std::chrono::minutes(2);
+
+        while (!cb->shutting_down.load() &&
+           std::chrono::steady_clock::now() < timeout) {
+
+            enum obs_media_state state;
+
+            {
+                std::lock_guard<std::mutex> lock(cb->source_mutex);
+
+                if (!cb->media_source)
+                    break;
+
+                state = obs_source_media_get_state(cb->media_source);
+            }
+
+            if (state == OBS_MEDIA_STATE_PLAYING)
+                saw_playing = true;
+
+            if (saw_playing && state == OBS_MEDIA_STATE_ENDED)
+                break;
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+    }
+}
+
+static void chatterbox_queue_worker(beep_boop_chatterbox_data *cb) {
+    if (!cb)
+        return;
+
+    while (!cb->shutting_down.load()) {
+
+        std::pair<std::string, std::string> message;
+
+        {
+            std::unique_lock<std::mutex> lock(cb->queue_mutex);
+
+            cb->queue_cv.wait(lock, [cb] {
+                return cb->shutting_down.load() ||
+                       !cb->tts_queue.empty();
+            });
+
+            if (cb->shutting_down.load())
+                break;
+
+            message = std::move(cb->tts_queue.front());
+            cb->tts_queue.pop_front();
+        }
+
+        fetch_and_play_tts(cb, message.first, message.second);
+    }
+}
+
+static void chatterbox_enqueue_tts(
+    beep_boop_chatterbox_data *cb,
+    const std::string &text,
+    const std::string &voice)
+{
+    if (!cb || text.empty() || cb->shutting_down.load())
+        return;
+
+    {
+        std::lock_guard<std::mutex> lock(cb->queue_mutex);
+
+        // Maximum number of waiting messages.
+        if (cb->tts_queue.size() >=
+            static_cast<size_t>(cb->tts_buffer)) {
+            blog(LOG_WARNING,
+                 "[BeepBoop] TTS queue full. Dropping message.");
+            return;
+        }
+
+        cb->tts_queue.emplace_back(text, voice);
+    }
+
+    cb->queue_cv.notify_one();
 }
 
 void chatterbox_init(beep_boop_chatterbox_data *cb, obs_source_t *parent, obs_data_t *settings) {
@@ -318,6 +402,7 @@ void chatterbox_init(beep_boop_chatterbox_data *cb, obs_source_t *parent, obs_da
     chatterbox_update(cb, settings);
     chatterbox_start_worker(cb, fetch_chatterbox_voices, cb);
     chatterbox_start_worker(cb, chatterbox_poll_worker_thread, cb);
+    chatterbox_start_worker(cb, chatterbox_queue_worker, cb);
 }
 
 void chatterbox_update(beep_boop_chatterbox_data *cb, obs_data_t *settings) {
@@ -346,6 +431,11 @@ void chatterbox_update(beep_boop_chatterbox_data *cb, obs_data_t *settings) {
     cb->exaggeration = std::clamp((float)obs_data_get_double(settings, "chatterbox_exaggeration"), 0.1f, 2.0f);
     const float volume = std::clamp((float)obs_data_get_double(settings, "chatterbox_volume"), 0.1f, 3.0f);
     cb->volume.store(volume);
+    std::lock_guard<std::mutex> lock(cb->queue_mutex);
+    cb->tts_buffer = std::clamp(
+        (int)obs_data_get_int(settings, "tts_buffer"),
+        1, 10
+    );
     {
         std::lock_guard<std::mutex> lock(cb->source_mutex);
         if (cb->media_source)
@@ -360,6 +450,7 @@ void chatterbox_get_defaults(obs_data_t *settings) {
     obs_data_set_default_string(settings, "chatterbox_url", "http://localhost:8000");
     obs_data_set_default_bool(settings, "enable_chat_vo", false);
     obs_data_set_default_bool(settings, "enable_rant_vo", false);
+    obs_data_set_default_int(settings, "tts_buffer", 3);
     obs_data_set_default_string(settings, "chatterbox_language", "en");
     obs_data_set_default_double(settings, "chatterbox_temperature", 0.8);
     obs_data_set_default_double(settings, "chatterbox_exaggeration", 0.5);
@@ -379,6 +470,7 @@ void chatterbox_destroy(beep_boop_chatterbox_data *cb) {
         std::lock_guard<std::mutex> lock(cb->workers_mutex);
         cb->shutting_down.store(true);
         workers.swap(cb->workers);
+        cb->queue_cv.notify_all();
     }
 
     for (auto &worker : workers) {
@@ -420,6 +512,15 @@ void chatterbox_add_properties(obs_properties_t *props, beep_boop_chatterbox_dat
     obs_properties_add_float_slider(props, "chatterbox_exaggeration", "Exaggeration", 0.1, 2.0, 0.1);
     obs_properties_add_float_slider(props, "chatterbox_volume", "TTS Volume", 0.1, 3.0, 0.1);
 
+    obs_properties_add_int_slider(
+        props,
+        "tts_buffer",
+        "TTS Buffer",
+        1,
+        10,
+        1
+    );
+
     obs_properties_add_bool(props, "enable_chat_vo", "Enable Chat VO");
     obs_properties_add_bool(props, "enable_rant_vo", "Enable Rant VO");
 
@@ -449,26 +550,35 @@ void chatterbox_add_properties(obs_properties_t *props, beep_boop_chatterbox_dat
     }, cb);
 }
 
-void chatterbox_speak_chat(beep_boop_chatterbox_data *cb, const std::string &username, const std::string &text) {
+void chatterbox_speak_chat(beep_boop_chatterbox_data *cb,
+                           const std::string &username,
+                           const std::string &text) {
     if (!cb || !cb->enable_chat_vo || cb->shutting_down.load())
         return;
+
     std::string speech = username + " says: " + text;
-    chatterbox_start_worker(cb, fetch_and_play_tts, cb, speech, cb->chat_voice);
+    chatterbox_enqueue_tts(cb, speech, cb->chat_voice);
 }
 
-void chatterbox_speak_rant(beep_boop_chatterbox_data *cb, const std::string &username, const std::string &text) {
+void chatterbox_speak_rant(beep_boop_chatterbox_data *cb,
+                           const std::string &username,
+                           const std::string &text) {
     if (!cb || !cb->enable_rant_vo || cb->shutting_down.load())
         return;
+
     std::string speech = username + " rants: " + text;
-    chatterbox_start_worker(cb, fetch_and_play_tts, cb, speech, cb->rant_voice);
+    chatterbox_enqueue_tts(cb, speech, cb->rant_voice);
 }
 
 void chatterbox_test_speech(beep_boop_chatterbox_data *cb) {
     if (!cb || cb->shutting_down.load())
         return;
-    chatterbox_start_worker(cb, fetch_and_play_tts, cb,
-                            "This is a test of your text to speech system.",
-                            cb->chat_voice);
+
+    chatterbox_enqueue_tts(
+        cb,
+        "This is a test of your text to speech system.",
+        cb->chat_voice
+    );
 }
 
 bool chatterbox_audio_render(beep_boop_chatterbox_data *cb, uint64_t *ts_out,

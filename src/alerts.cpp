@@ -156,7 +156,7 @@ static void read_video_settings(beep_boop_alerts_data *alerts, obs_data_t *setti
     alerts->video_height = std::clamp((int)obs_data_get_int(settings, "video_height"), 8, 4096);
     alerts->alert_font_size = std::clamp((int)obs_data_get_int(settings, "alert_font_size"), 8, 256);
     alerts->alert_font_face = obs_data_get_string(settings, "alert_font_face");
-    if (alerts->alert_font_face.empty()) alerts->alert_font_face = "DejaVu Sans";
+    if (alerts->alert_font_face.empty()) alerts->alert_font_face = "Times New Roman";
 }
 
 bool alerts_play(beep_boop_alerts_data *alerts, beep_boop_alert_type type)
@@ -323,10 +323,11 @@ void alerts_add_properties(obs_properties_t *props, beep_boop_alerts_data *alert
     }
 
     obs_property_t *alert_font = obs_properties_add_list(props, "alert_font_face", "Alerts Font Style", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
-    obs_property_list_add_string(alert_font, "DejaVu Sans", "DejaVu Sans");
-    obs_property_list_add_string(alert_font, "Liberation Sans", "Liberation Sans");
-    obs_property_list_add_string(alert_font, "Liberation Serif", "Liberation Serif");
-    obs_property_list_add_string(alert_font, "DejaVu Sans Mono", "DejaVu Sans Mono");
+    obs_property_list_add_string(alert_font, "Times New Roman", "Times New Roman");
+    obs_property_list_add_string(alert_font, "Arial", "Arial");
+    obs_property_list_add_string(alert_font, "Verdana", "Verdana");
+    obs_property_list_add_string(alert_font, "Georgia", "Georgia");
+    obs_property_list_add_string(alert_font, "Courier New", "Courier New");
     obs_property_t *alert_size = obs_properties_add_int_slider(props, "alert_font_size", "Alert Font Size", 8, 256, 1);
     obs_property_int_set_suffix(alert_size, " px");
     obs_property_t *p = obs_properties_add_int_slider(props, "video_x_percent", "Alert X", 0, 100, 1);

@@ -6,8 +6,10 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -90,7 +92,7 @@ struct beep_boop_alerts_data {
     int video_width = 512;
     int video_height = 512;
     int alert_font_size = 32;
-    std::string alert_font_face = "DejaVu Sans";
+    std::string alert_font_face = "Times New Roman";
 
     std::mutex cooldown_mutex;
     std::chrono::steady_clock::time_point last_alert_times[ALERT_COUNT] = {};
@@ -134,7 +136,7 @@ struct beep_boop_goals_data {
     std::string complete_scene;
     bool completion_scene_triggered = false;
     int font_size = 16;
-    std::string font_face = "DejaVu Sans";
+    std::string font_face = "Times New Roman";
     int x = 0;
     int y = 108;
     int label_font_size = 24;
@@ -164,6 +166,11 @@ struct beep_boop_chatterbox_data {
 
     // Serialize requests because they share one temporary WAV file/source.
     std::mutex request_mutex;
+    // TTS message queue
+    std::mutex queue_mutex;
+    std::condition_variable queue_cv;
+    std::deque<std::pair<std::string, std::string>> tts_queue;
+    int tts_buffer = 3;
     std::string url = "http://localhost:8000";
     bool enable_chat_vo = false;
     bool enable_rant_vo = false;
