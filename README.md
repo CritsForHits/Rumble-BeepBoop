@@ -47,6 +47,7 @@ new voices.)
 Add Chatterbox Voices: Obtain a ~20 second audio clip of the voice you'd wish to use as a .wav file. Drop it into Chatterbox/voices. Reconnect with Rumble-BeepBoop, you'll now see your new voice.
 
 Installing: run the powershell script (Windows - ps1) or the bash script (Linux - sh)
+
 If powershell script fails, try in your powershell terminal:
 
 	.\install_chatterbox.ps1 -UpdateRepo
