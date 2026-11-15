@@ -142,7 +142,7 @@ static obs_source_t *create_text_source(const char *name, const std::string &tex
     obs_data_set_bool(settings, "outline", true);
     obs_source_t *source = obs_source_create_private("text_gdiplus", name, settings);
     obs_data_release(settings);
-    return src;
+    return source;
 }
 
 static void set_text_font(obs_source_t *src, const std::string &face, int size) {
