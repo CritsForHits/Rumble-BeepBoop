@@ -74,7 +74,7 @@ I've included a couple of progress bar overlays and a few alert .webm videos wit
 
 Feel safe to use this commercially free in your Rumble stream.
 
-All assets used in this plugin were made with Apache 2.0 liscense and royalty free media.
+All assets used in this plugin were made with Apache 2.0 license and royalty free media.
 
 (Note: Animations were done with BiRefNet and LTX: LTX is commercially free for under 10 million dollars annual revenue.)
 
