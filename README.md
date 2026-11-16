@@ -8,6 +8,8 @@
 
 Apache 2.0 + Common Clause
 
+[Tutorial] (https://rumble.com/v7ifv3i-rumble-beepboop-tutorial.html?e9s=src_v1_upp_a)
+
 </div>
 
 ---
