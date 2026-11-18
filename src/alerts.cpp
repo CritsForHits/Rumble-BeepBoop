@@ -96,8 +96,9 @@ void alerts_stop(beep_boop_alerts_data *alerts)
             );
 
             obs_source_media_stop(alerts->media_sources[i]);
-            obs_source_set_monitoring_enabled(
-                alerts->media_sources[i], false
+            obs_source_set_monitoring_type(
+                alerts->media_sources[i],
+                OBS_MONITORING_TYPE_NONE
             );
         }
     }
@@ -279,7 +280,10 @@ void alerts_init(beep_boop_alerts_data *alerts, obs_source_t *parent, obs_data_t
             alerts->media_audio_mixers[i] =
                 obs_source_get_audio_mixers(alerts->media_sources[i]);
         
-            obs_source_set_monitoring_enabled(alerts->media_sources[i], true);
+            obs_source_set_monitoring_type(
+                alerts->media_sources[i],
+                OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT
+            );
             obs_source_media_stop(alerts->media_sources[i]);
         }
     }
@@ -419,7 +423,10 @@ void alerts_video_render(beep_boop_alerts_data *alerts)
         
             obs_source_set_audio_mixers(source, 0);
         
-            obs_source_set_monitoring_enabled(source, false);
+            obs_source_set_monitoring_type(
+                source,
+                OBS_MONITORING_TYPE_NONE
+            );
         
             alerts->loop_audio_muted.store(true);
             alerts->media_started.store(false);
@@ -504,10 +511,10 @@ bool alerts_audio_render(beep_boop_alerts_data *alerts, uint64_t *ts_out,
 
     const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::steady_clock::now() - alerts->alert_start_time).count();
-        if (elapsed >= alerts->alert_max_duration) {
-            alerts_stop(alerts);
-            return false;
-        }
+    if (elapsed >= alerts->alert_max_duration) {
+        alerts_stop(alerts);
+        return false;
+    }
     if (alerts->loop_audio_muted.load())
         return false;
 
