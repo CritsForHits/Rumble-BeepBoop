@@ -86,6 +86,7 @@ struct beep_boop_alerts_data {
     std::atomic<bool> media_started{false};
 
     std::string media_paths[ALERT_COUNT];
+    uint32_t media_audio_mixers[ALERT_COUNT] = {};
     bool alerts_enabled = true;
     int video_x_percent = 0;
     int video_y_percent = 0;

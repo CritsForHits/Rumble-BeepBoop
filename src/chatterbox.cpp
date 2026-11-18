@@ -36,11 +36,10 @@ static size_t chatterbox_write_callback(char *ptr, size_t size, size_t nmemb, vo
 }
 
 static void set_chatterbox_connected(beep_boop_chatterbox_data *cb, bool connected,
-                                     bool refresh_properties = true) {
+                                     bool refresh_properties = false) {
     if (!cb) return;
-    const bool changed = cb->connected.exchange(connected) != connected;
-    if (changed && refresh_properties && cb->parent)
-        obs_source_update_properties(cb->parent);
+    (void)refresh_properties;
+    cb->connected.store(connected);
 }
 
 static bool chatterbox_http_get(const std::string &url, long timeout_seconds,
@@ -101,7 +100,6 @@ static void fetch_chatterbox_voices(beep_boop_chatterbox_data *cb) {
             cb->available_voices.clear();
         }
         set_chatterbox_connected(cb, false, false);
-        if (cb->parent) obs_source_update_properties(cb->parent);
         return;
     }
 
@@ -147,8 +145,6 @@ static void fetch_chatterbox_voices(beep_boop_chatterbox_data *cb) {
         cb->available_voices = std::move(fetched);
     }
     set_chatterbox_connected(cb, connected, false);
-    // Refreshing properties also rebuilds the live voice lists in an open panel.
-    if (cb->parent) obs_source_update_properties(cb->parent);
 }
 
 static void chatterbox_poll_worker_thread(beep_boop_chatterbox_data *cb)
@@ -503,14 +499,26 @@ void chatterbox_add_properties(obs_properties_t *props, beep_boop_chatterbox_dat
         ? "🟢 Chatterbox Connected" : "🔴 Chatterbox Disconnected";
     obs_properties_add_text(props, "chatterbox_status", status, OBS_TEXT_INFO);
 
-    obs_properties_add_button2(props, "refresh_chatterbox", "Refresh Connection", [](obs_properties_t *, obs_property_t *, void *data) {
-        auto *cbox = static_cast<beep_boop_chatterbox_data *>(data);
-        if (cbox) {
-            set_chatterbox_connected(cbox, false);
-            chatterbox_start_worker(cbox, fetch_chatterbox_voices, cbox);
-        }
-        return true;
-    }, cb);
+    obs_properties_add_button2(
+        props,
+        "refresh_chatterbox",
+        "Refresh Connection",
+        [](obs_properties_t *, obs_property_t *, void *data) {
+
+            auto *cbox = static_cast<beep_boop_chatterbox_data *>(data);
+
+            if (cbox && !cbox->shutting_down.load()) {
+
+                set_chatterbox_connected(cbox, false, false);
+
+                fetch_chatterbox_voices(cbox);
+            }
+
+            return true;
+
+        },
+        cb
+    );
 
     obs_property_t *lang_list = obs_properties_add_list(props, "chatterbox_language", "Language", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
     obs_property_list_add_string(lang_list, "English", "en");

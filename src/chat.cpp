@@ -813,7 +813,7 @@ bool obs_module_load(void) {
     info.type = OBS_SOURCE_TYPE_INPUT;
     info.output_flags = OBS_SOURCE_VIDEO | OBS_SOURCE_CUSTOM_DRAW | OBS_SOURCE_COMPOSITE;
     info.icon_type = OBS_ICON_TYPE_SLIDESHOW;
-    info.get_name = [](void*) { return obs_module_text("BeepBoop.Name"); };
+    info.get_name = [](void*) { return "Rumble-BB"; };
     info.create = beep_boop_create;
     info.destroy = beep_boop_destroy;
     info.update = [](void* data, obs_data_t* s) {
