@@ -79,13 +79,17 @@ static bool is_audio_only_media(const std::string &path)
 void alerts_stop(beep_boop_alerts_data *alerts)
 {
     if (!alerts) return;
+
     alerts->active_alert.store(-1);
     alerts->loop_audio_muted.store(false);
     alerts->current_loop_iteration.store(1);
     alerts->media_started.store(false);
+
     alerts_set_label(alerts, "");
+
     for (int i = 0; i < ALERT_COUNT; ++i) {
         if (alerts->media_sources[i]) {
+
             obs_source_set_audio_mixers(
                 alerts->media_sources[i],
                 alerts->media_audio_mixers[i]
@@ -271,10 +275,10 @@ void alerts_init(beep_boop_alerts_data *alerts, obs_source_t *parent, obs_data_t
         obs_data_release(media);
         if (alerts->media_sources[i]) {
             obs_source_add_active_child(parent, alerts->media_sources[i]);
-
+        
             alerts->media_audio_mixers[i] =
                 obs_source_get_audio_mixers(alerts->media_sources[i]);
-
+        
             obs_source_set_monitoring_enabled(alerts->media_sources[i], true);
             obs_source_media_stop(alerts->media_sources[i]);
         }
@@ -412,10 +416,14 @@ void alerts_video_render(beep_boop_alerts_data *alerts)
         const int current = alerts->current_loop_iteration.load();
         if (repeat_video && current < max_loops) {
             alerts->current_loop_iteration.store(current + 1);
+        
             obs_source_set_audio_mixers(source, 0);
+        
             obs_source_set_monitoring_enabled(source, false);
+        
             alerts->loop_audio_muted.store(true);
             alerts->media_started.store(false);
+        
             obs_source_media_restart(source);
             return;
         }
@@ -496,10 +504,10 @@ bool alerts_audio_render(beep_boop_alerts_data *alerts, uint64_t *ts_out,
 
     const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::steady_clock::now() - alerts->alert_start_time).count();
-    if (elapsed >= alerts->alert_max_duration) {
-        alerts_stop(alerts);
-        return false;
-    }
+        if (elapsed >= alerts->alert_max_duration) {
+            alerts_stop(alerts);
+            return false;
+        }
     if (alerts->loop_audio_muted.load())
         return false;
 
