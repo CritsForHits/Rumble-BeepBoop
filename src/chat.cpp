@@ -84,7 +84,7 @@ struct beep_boop_data {
     int chat_x_percent = 0;
     int chat_y_percent = 95;
     int font_size = 32;
-    std::string font_face = "DejaVu Sans";
+    std::string font_face = "Times New Roman";
     std::thread worker;
     std::thread api_poll_worker;
     std::condition_variable stop_cv;
@@ -130,7 +130,7 @@ static uint32_t parse_color(const std::string &color) {
     } catch (...) { return 0xFFFFFFFF; }
 }
 
-static obs_source_t *create_text_source(const char *name, const std::string &text, uint32_t color, int font_size = 32, const std::string &font_face = "DejaVu Sans") {
+static obs_source_t *create_text_source(const char *name, const std::string &text, uint32_t color, int font_size = 32, const std::string &font_face = "Times New Roman") {
     obs_data_t *settings = obs_data_create();
     obs_data_t *font = obs_data_create();
     obs_data_set_string(font, "face", font_face.c_str());
@@ -142,9 +142,9 @@ static obs_source_t *create_text_source(const char *name, const std::string &tex
     obs_data_set_int(settings, "color1", color);
     obs_data_set_int(settings, "color2", color);
     obs_data_set_bool(settings, "outline", true);
-    obs_source_t *source = obs_source_create_private("text_gdiplus", name, settings);
+    obs_source_t *src = obs_source_create_private("text_gdiplus", name, settings);
     obs_data_release(settings);
-    return source;
+    return src;
 }
 
 static void set_text_font(obs_source_t *src, const std::string &face, int size) {
@@ -537,7 +537,7 @@ static void sync_api_goal_totals(beep_boop_data *bb, const json &root) {
         }
     }
 
-    // Likes Alert: compare aggregate like totals for each stream. The first
+    // Likes VFX: compare aggregate like totals for each stream. The first
     // snapshot establishes a baseline; later increases trigger one alert.
     if (root.contains("livestreams") && root["livestreams"].is_array()) {
         for (const auto &stream : root["livestreams"]) {
@@ -562,13 +562,7 @@ static void sync_api_goal_totals(beep_boop_data *bb, const json &root) {
             const uint64_t old_likes = result.first->second;
             result.first->second = new_likes;
             if (new_likes > old_likes) {
-                const uint64_t increase = new_likes - old_likes;
-                if (alerts_play(&bb->alerts, ALERT_LIKES)) {
-                    const std::string label = increase == 1
-                        ? "1 New Like!"
-                        : std::to_string(increase) + " New Likes!";
-                    alerts_set_label(&bb->alerts, label);
-                }
+                alerts_play(&bb->alerts, ALERT_LIKES);
             }
         }
     }
@@ -907,6 +901,8 @@ bool obs_module_load(void) {
         obs_data_set_default_string(s, "donation_media", "");
         obs_data_set_default_int(s, "video_x_percent", 60);
         obs_data_set_default_int(s, "video_y_percent", 30);
+        obs_data_set_default_int(s, "likes_x_percent", 40);
+        obs_data_set_default_int(s, "likes_y_percent", 95);
         obs_data_set_default_int(s, "video_width", 512);
         obs_data_set_default_int(s, "video_height", 512);
         obs_data_set_default_int(s, "goal_x", 75);

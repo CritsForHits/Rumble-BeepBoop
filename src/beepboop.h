@@ -76,6 +76,12 @@ struct beep_boop_alerts_data {
     std::string active_label;
     std::mutex label_mutex;
     std::atomic<int> active_alert{-1};
+    // Independent Likes VFX: not subject to regular alert cooldown or text.
+    std::atomic<bool> likes_active{false};
+    std::atomic<bool> likes_media_started{false};
+    std::atomic<bool> likes_loop_audio_muted{false};
+    std::atomic<int> likes_loop_iteration{1};
+    std::chrono::steady_clock::time_point likes_start_time{};
 
     std::chrono::steady_clock::time_point alert_start_time{};
     int alert_cooldown = 60;
@@ -91,6 +97,8 @@ struct beep_boop_alerts_data {
     bool alerts_enabled = true;
     int video_x_percent = 0;
     int video_y_percent = 0;
+    int likes_x_percent = 40;
+    int likes_y_percent = 95;
     int video_width = 512;
     int video_height = 512;
     int alert_font_size = 32;
@@ -181,6 +189,7 @@ struct beep_boop_chatterbox_data {
     std::string rant_voice = "default";
 
     std::atomic<bool> connected{false};
+    std::atomic<bool> refresh_in_progress{false};
 
     std::mutex voices_mutex;
     std::vector<chatterbox_voice_info> available_voices;

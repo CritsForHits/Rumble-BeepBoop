@@ -20,11 +20,19 @@ Apache 2.0 + Common Clause
 
 Everything runs on your own PC. No browser source, external hosting, or intermediary service is required.
 
+Super fast, no lag, no connection issues.
+
+Commercial-Free, including assets.
+
+(Slight exception - You are not allowed to copy my code or assets and then try to pawn them off as your own.)
+
 ## Features
 
 - **Chat** — Display Rumble Chat as a fading stack in OBS.
 - **Alerts** — Display stream alerts.
+- **Likes VFX** — Little reminder, displays a VFX everytime user hits thumbs up. 
 - **Text-to-Speech (TTS)** — Chatterbox interface, rants and/or chats can be voiced easily with your own wav file.
+- **TTS Voice Mimic** — Users can input !voice to mimic a character - if available.
 - **Goal Progress Bars** — Sub/Follower total/monthly/weekly/daily goals with progress bar and scene change on completion.
 - **Local operation** — All local, all inside OBS (except chatterbox), super light-weight.
 
@@ -38,7 +46,9 @@ Everything runs on your own PC. No browser source, external hosting, or intermed
 
 - Removed excess user options for chatterbox - (chatterbox was ignoring it anyways)
 - Decided to stick with turbo chatterbox until project is finished - Removed language option.
-- Added Like Alerts
+- Fixed chatterbox's refresh connection to work if chatterbox was previously dc'd.
+- Added Likes VFX (Remind user to hit that thumbs up without you saying it)
+- Added !voice mimic for viewer fun.
 
 ## Chatterbox
 

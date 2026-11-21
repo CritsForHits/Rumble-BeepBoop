@@ -38,7 +38,9 @@ static size_t chatterbox_write_callback(char *ptr, size_t size, size_t nmemb, vo
 static void set_chatterbox_connected(beep_boop_chatterbox_data *cb, bool connected,
                                      bool refresh_properties = false) {
     if (!cb) return;
+
     (void)refresh_properties;
+
     cb->connected.store(connected);
 }
 
@@ -300,7 +302,7 @@ static void fetch_and_play_tts(beep_boop_chatterbox_data *cb, const std::string 
         bool saw_playing = false;
 
         const auto timeout = std::chrono::steady_clock::now() +
-                         std::chrono::minutes(2);
+                             std::chrono::minutes(2);
 
         while (!cb->shutting_down.load() &&
            std::chrono::steady_clock::now() < timeout) {
@@ -493,19 +495,34 @@ void chatterbox_add_properties(obs_properties_t *props, beep_boop_chatterbox_dat
         props,
         "refresh_chatterbox",
         "Refresh Connection",
-        [](obs_properties_t *, obs_property_t *, void *data) {
-
+        [](obs_properties_t *props, obs_property_t *, void *data) {
             auto *cbox = static_cast<beep_boop_chatterbox_data *>(data);
+            if (!cbox || cbox->shutting_down.load() ||
+                cbox->refresh_in_progress.exchange(true))
+                return false;
 
-            if (cbox && !cbox->shutting_down.load()) {
+            // Never perform network I/O or rebuild OBS properties inside the
+            // button callback: OBS is currently using these property objects.
+            if (auto *status = obs_properties_get(props, "chatterbox_status"))
+                obs_property_set_description(status, "🟡 Chatterbox Connecting…");
 
-                set_chatterbox_connected(cbox, false, false);
-
+            // Hold the OBS source alive until the queued UI refresh finishes.
+            // Do not capture a property pointer: OBS may rebuild/free it.
+            obs_source_t *source = cbox->parent ? obs_source_get_ref(cbox->parent) : nullptr;
+            chatterbox_start_worker(cbox, [cbox, source]() {
                 fetch_chatterbox_voices(cbox);
-            }
-
-            return true;
-
+                cbox->refresh_in_progress.store(false);
+                if (source) {
+                    obs_queue_task(OBS_TASK_UI, [](void *param) {
+                        auto *held_source = static_cast<obs_source_t *>(param);
+                        obs_source_update_properties(held_source);
+                        obs_source_release(held_source);
+                    }, source, false);
+                }
+            });
+            // The refreshed voice list and connection label are read when OBS
+            // rebuilds the panel from the queued UI-thread task.
+            return false;
         },
         cb
     );
@@ -550,14 +567,56 @@ void chatterbox_add_properties(obs_properties_t *props, beep_boop_chatterbox_dat
     }, cb);
 }
 
+static std::string voice_command_key(const std::string &value)
+{
+    // Ignore case, spaces, underscores and hyphens in displayed voice names.
+    std::string key;
+    for (unsigned char c : value)
+        if (std::isalnum(c)) key.push_back(static_cast<char>(std::tolower(c)));
+    return key;
+}
+
 void chatterbox_speak_chat(beep_boop_chatterbox_data *cb,
                            const std::string &username,
                            const std::string &text) {
     if (!cb || !cb->enable_chat_vo || cb->shutting_down.load())
         return;
 
-    std::string speech = username + " says: " + text;
-    chatterbox_enqueue_tts(cb, speech, cb->chat_voice);
+    if (text.size() > 1 && text[0] == '!') {
+        const size_t end = text.find_first_of(" \t\r\n", 1);
+        const std::string command = text.substr(1, end == std::string::npos
+                                                    ? std::string::npos : end - 1);
+        const std::string key = voice_command_key(command);
+        if (!key.empty() && end != std::string::npos) {
+            const size_t message_start = text.find_first_not_of(" \t\r\n", end);
+            if (message_start != std::string::npos) {
+                const std::string message = text.substr(message_start);
+                std::string voice;
+                if (key == "default") voice = "default";
+                {
+                    std::lock_guard<std::mutex> lock(cb->voices_mutex);
+                    for (const auto &item : cb->available_voices) {
+                        if (voice_command_key(item.name) == key ||
+                            voice_command_key(item.voice_id) == key ||
+                            (item.voice_id.rfind("ref_", 0) == 0 &&
+                             voice_command_key(chatterbox_voice_display_name(
+                                 item.voice_id.substr(4))) == key)) {
+                            voice = item.voice_id;
+                            break;
+                        }
+                    }
+                }
+                if (!voice.empty()) {
+                    chatterbox_enqueue_tts(cb, message, voice);
+                } else {
+                    chatterbox_enqueue_tts(cb, username + " says in a " + command +
+                                           " voice: " + message, cb->chat_voice);
+                }
+                return;
+            }
+        }
+    }
+    chatterbox_enqueue_tts(cb, username + " says: " + text, cb->chat_voice);
 }
 
 void chatterbox_speak_rant(beep_boop_chatterbox_data *cb,
