@@ -34,25 +34,29 @@ Everything runs on your own PC. No browser source, external hosting, or intermed
 2. Copy the extracted plugin files into your OBS Studio plugins folder.
 3. Restart OBS Studio.
 
+## 0.4 Updates (Beta)
+
+- Removed excess user options for chatterbox - (chatterbox was ignoring it anyways)
+- Decided to stick with turbo chatterbox until project is finished - Removed language option.
+- Added Like Alerts
+
 ## Chatterbox
 
-Chatterbox is our AI TTS choice.
-Chatterbox installer with royalty free voices included. Chatterbox itself is also commercially free - however no longer in development.
-(Chatterbox requires 4gb of vram.
-I've set up the chatterbox installer to use it's turbo model.
-Chatterbox does support multilanguage but, as of now, my plugin is English only.
-Although, with a few lines of code, it can easilly be added in.
-Chatterbox is high quality and supports audio features such as [gasp] or [laugh].
-It's two competing alternatives are Qwen Voice and Kokoro.
-I went with Chatterbox because it's nearly as good as qwen, but uses much less
-resources and Qwen is pay to play. Kokoro is very light-weight, but commercial-free; however, low quality and cumbersome to make
-new voices.)
+Chatterbox is open sourced (here on GitHub) AI TTS.
+I've included an installer which does the following:
+- Installs basic prereqs for chatterbox (E.G. Python3)
+- Installs Chatterbox from GitHub
+- Creates an API python script to run Chatterbox as a API.
+- Creates a run script to start Chatterbox.
 
-Add Chatterbox Voices: Obtain a ~20 second audio clip of the voice you'd wish to use as a .wav file. Drop it into Chatterbox/voices. Reconnect with Rumble-BeepBoop, you'll now see your new voice.
+To add a custom voice, drop a 5-20 second clear .WAV file of the voice you wish to use into Chatterbox/voices.
+We'll use Chattebox's turbo model: Requirements = 4GB of VRAM (English Only).
+Chatterbox supports audio features such as [gasp] or [laugh] inputs.
+Chatterbox is commercial-free.
 
-Installing: run the powershell script (Windows - ps1) or the bash script (Linux - sh)
+Installing: Run the powershell script (Windows - ps1) or the bash script (Linux - sh)
 
-If powershell script fails, try in your powershell terminal:
+If powershell script fails, try one or more of the following in your powershell terminal:
 
 	.\install_chatterbox.ps1 -UpdateRepo
 
@@ -70,9 +74,9 @@ I've included a couple of progress bar overlays and a few alert .webm videos wit
 
 *This is under Apache 2.0 + Common Clause License*
 
-**You ARE allowed to use plugin for stream profit. (Donos, subs, etc.)**
+**You ARE allowed to use plugin for stream profit - No need for credit. (Although it's appreciated)**
 
-**You are NOT allowed to use this code or fork it for profit. (Copying this code and selling it? Better lawyer up)**
+**You are NOT allowed to use this code or fork it for profit.**
 
 Feel safe to use this commercially free in your Rumble stream.
 

@@ -210,10 +210,6 @@ static void fetch_and_play_tts(beep_boop_chatterbox_data *cb, const std::string 
         payload["predefined_voice_id"] = actual_voice.empty() ? "default" : actual_voice;
     }
 
-    payload["temperature"] = cb->temperature;
-    payload["exaggeration"] = cb->exaggeration;
-    payload["seed"] = -1;
-    payload["language"] = cb->language;
     payload["split_text"] = false;
     payload["output_format"] = "wav";
 
@@ -423,9 +419,6 @@ void chatterbox_update(beep_boop_chatterbox_data *cb, obs_data_t *settings) {
 
     cb->enable_chat_vo = obs_data_get_bool(settings, "enable_chat_vo");
     cb->enable_rant_vo = obs_data_get_bool(settings, "enable_rant_vo");
-    cb->language = obs_data_get_string(settings, "chatterbox_language");
-    cb->temperature = std::clamp((float)obs_data_get_double(settings, "chatterbox_temperature"), 0.1f, 1.0f);
-    cb->exaggeration = std::clamp((float)obs_data_get_double(settings, "chatterbox_exaggeration"), 0.1f, 2.0f);
 
     const float volume = std::clamp((float)obs_data_get_double(settings, "chatterbox_volume"), 0.1f, 3.0f);
     cb->volume.store(volume);
@@ -456,9 +449,6 @@ void chatterbox_get_defaults(obs_data_t *settings) {
     obs_data_set_default_bool(settings, "enable_chat_vo", false);
     obs_data_set_default_bool(settings, "enable_rant_vo", false);
     obs_data_set_default_int(settings, "tts_buffer", 3);
-    obs_data_set_default_string(settings, "chatterbox_language", "en");
-    obs_data_set_default_double(settings, "chatterbox_temperature", 0.8);
-    obs_data_set_default_double(settings, "chatterbox_exaggeration", 0.5);
     obs_data_set_default_double(settings, "chatterbox_volume", 1.0);
     obs_data_set_default_string(settings, "chat_voice", "default");
     obs_data_set_default_string(settings, "rant_voice", "default");
@@ -520,13 +510,6 @@ void chatterbox_add_properties(obs_properties_t *props, beep_boop_chatterbox_dat
         cb
     );
 
-    obs_property_t *lang_list = obs_properties_add_list(props, "chatterbox_language", "Language", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
-    obs_property_list_add_string(lang_list, "English", "en");
-    obs_property_list_add_string(lang_list, "Spanish", "es");
-    obs_property_list_add_string(lang_list, "French", "fr");
-
-    obs_properties_add_float_slider(props, "chatterbox_temperature", "Temperature", 0.1, 1.0, 0.1);
-    obs_properties_add_float_slider(props, "chatterbox_exaggeration", "Exaggeration", 0.1, 2.0, 0.1);
     obs_properties_add_float_slider(props, "chatterbox_volume", "TTS Volume", 0.1, 3.0, 0.1);
 
     obs_properties_add_int_slider(

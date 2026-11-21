@@ -47,10 +47,10 @@ static void update_alert_text_source(obs_source_t *source, const std::string &te
 
 // Order matches enum beep_boop_alert_type in beepboop.h
 static const char *media_keys[ALERT_COUNT] = {
-    "follower_media", "subscriber_media", "gifted_subs_media", "raid_media", "rant_media"
+    "follower_media", "subscriber_media", "gifted_subs_media", "raid_media", "rant_media", "likes_media"
 };
 static const char *media_labels[ALERT_COUNT] = {
-    "New Follower Alert", "New Subscriber Alert", "Gifted Subs Alert", "Raid Alert", "Rant Alert"
+    "New Follower Alert", "New Subscriber Alert", "Gifted Subs Alert", "Raid Alert", "Rant Alert", "Likes Alert"
 };
 
 static obs_data_t *create_media_settings(const std::string &local_file)
@@ -246,6 +246,8 @@ static bool test_raid(obs_properties_t *, obs_property_t *, void *data)
 { return test_alert(static_cast<beep_boop_alerts_data *>(data), ALERT_RAID, "Incoming Raid from ", "!"); }
 static bool test_rant(obs_properties_t *, obs_property_t *, void *data)
 { return test_alert(static_cast<beep_boop_alerts_data *>(data), ALERT_RANT, "", " Rants: \"Hello World\" on testing"); }
+static bool test_likes(obs_properties_t *, obs_property_t *, void *data)
+{ return test_alert(static_cast<beep_boop_alerts_data *>(data), ALERT_LIKES, "", " New Likes!"); }
 
 void alerts_init(beep_boop_alerts_data *alerts, obs_source_t *parent, obs_data_t *settings)
 {
@@ -335,16 +337,25 @@ void alerts_add_properties(obs_properties_t *props, beep_boop_alerts_data *alert
     obs_property_int_set_suffix(p_duration, " s");
 
     for (int i = 0; i < ALERT_COUNT; ++i) {
+        // Keep the Likes Alert media input immediately under Rant Alert.
+        if (i == ALERT_LIKES) continue;
         obs_properties_add_path(props, media_keys[i], media_labels[i], OBS_PATH_FILE,
             "Media Files (*.mp3 *.wav *.ogg *.flac *.mp4 *.mkv *.webm);;All Files (*.*)", nullptr);
-        
-        auto test_cb = i == 0 ? test_follower :
-                       i == 1 ? test_subscriber :
-                       i == 2 ? test_gifted_subs :
-                       i == 3 ? test_raid : test_rant;
+        if (i == ALERT_RANT) {
+            obs_properties_add_path(props, media_keys[ALERT_LIKES], media_labels[ALERT_LIKES], OBS_PATH_FILE,
+                "Media Files (*.mp3 *.wav *.ogg *.flac *.mp4 *.mkv *.webm);;All Files (*.*)", nullptr);
+        }
 
+        auto test_cb = i == ALERT_FOLLOWER ? test_follower :
+                       i == ALERT_SUBSCRIBER ? test_subscriber :
+                       i == ALERT_GIFTED_SUBS ? test_gifted_subs :
+                       i == ALERT_RAID ? test_raid : test_rant;
         obs_properties_add_button2(props, (std::string("test_") + media_keys[i]).c_str(),
             (std::string("Test ") + media_labels[i]).c_str(), test_cb, alerts);
+        if (i == ALERT_RANT) {
+            obs_properties_add_button2(props, (std::string("test_") + media_keys[ALERT_LIKES]).c_str(),
+                (std::string("Test ") + media_labels[ALERT_LIKES]).c_str(), test_likes, alerts);
+        }
     }
 
     obs_property_t *alert_font = obs_properties_add_list(props, "alert_font_face", "Alerts Font Style", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);

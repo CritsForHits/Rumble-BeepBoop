@@ -58,6 +58,8 @@ struct beep_boop_data {
     std::string stream_id;
     bool rant_snapshot_initialized = false;
     std::string last_rant_key;
+    // Per-stream aggregate like totals; there is no per-user like event data.
+    std::unordered_map<std::string, uint64_t> like_counts;
     bool follower_history_seeded = false;
     std::unordered_set<std::string> seen_follower_events;
     std::atomic<bool> repeat_follower_protection{true};
@@ -535,6 +537,42 @@ static void sync_api_goal_totals(beep_boop_data *bb, const json &root) {
         }
     }
 
+    // Likes Alert: compare aggregate like totals for each stream. The first
+    // snapshot establishes a baseline; later increases trigger one alert.
+    if (root.contains("livestreams") && root["livestreams"].is_array()) {
+        for (const auto &stream : root["livestreams"]) {
+            if (!stream.is_object() || !stream.contains("likes")) continue;
+
+            std::string stream_key = "default";
+            if (stream.contains("stream_key") && !stream["stream_key"].is_null()) {
+                stream_key = stream["stream_key"].is_string()
+                    ? stream["stream_key"].get<std::string>()
+                    : stream["stream_key"].dump();
+            } else if (stream.contains("id") && !stream["id"].is_null()) {
+                stream_key = stream["id"].is_string()
+                    ? stream["id"].get<std::string>()
+                    : stream["id"].dump();
+            }
+            if (stream_key.empty()) stream_key = "default";
+
+            const uint64_t new_likes = json_count(stream, "likes");
+            const auto result = bb->like_counts.emplace(stream_key, new_likes);
+            if (result.second) continue; // Initial value: do not alert.
+
+            const uint64_t old_likes = result.first->second;
+            result.first->second = new_likes;
+            if (new_likes > old_likes) {
+                const uint64_t increase = new_likes - old_likes;
+                if (alerts_play(&bb->alerts, ALERT_LIKES)) {
+                    const std::string label = increase == 1
+                        ? "1 New Like!"
+                        : std::to_string(increase) + " New Likes!";
+                    alerts_set_label(&bb->alerts, label);
+                }
+            }
+        }
+    }
+
     // Rant Alert Handling matching exact required format: UserA Rants: "Hello World" on testing
     if (root.contains("livestreams") && root["livestreams"].is_array()) {
         for (const auto &stream : root["livestreams"]) {
@@ -865,6 +903,7 @@ bool obs_module_load(void) {
         obs_data_set_default_string(s, "subscriber_media", "");
         obs_data_set_default_string(s, "raid_media", "");
         obs_data_set_default_string(s, "rant_media", "");
+        obs_data_set_default_string(s, "likes_media", "");
         obs_data_set_default_string(s, "donation_media", "");
         obs_data_set_default_int(s, "video_x_percent", 60);
         obs_data_set_default_int(s, "video_y_percent", 30);

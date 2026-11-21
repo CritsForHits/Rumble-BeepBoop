@@ -56,6 +56,7 @@ enum beep_boop_alert_type {
     ALERT_GIFTED_SUBS,
     ALERT_RAID,
     ALERT_RANT,
+    ALERT_LIKES,
     ALERT_COUNT
 };
 
@@ -175,9 +176,6 @@ struct beep_boop_chatterbox_data {
     std::string url = "http://localhost:8000";
     bool enable_chat_vo = false;
     bool enable_rant_vo = false;
-    std::string language = "en";
-    float temperature = 0.8f;
-    float exaggeration = 0.5f;
     std::atomic<float> volume{1.0f};
     std::string chat_voice = "default";
     std::string rant_voice = "default";
