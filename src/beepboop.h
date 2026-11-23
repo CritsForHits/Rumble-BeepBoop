@@ -35,6 +35,7 @@ inline beep_boop_badge_style beep_boop_badge_style_for(const std::string &badge)
     constexpr uint32_t green = 0xFF00FF00;  // RGB: 0, 255, 0
     constexpr uint32_t red = 0xFF0000FF;    // RGB: 255, 0, 0
     constexpr uint32_t white = 0xFFFFFFFF;
+    constexpr uint32_t light_gray = 0xFFD3D3D3; // RGB: 211, 211, 211
 
     if (key.find("admin") != std::string::npos) return {"★", yellow};
     if (key.find("moderator") != std::string::npos || key.find("mod") == 0)
@@ -44,6 +45,9 @@ inline beep_boop_badge_style beep_boop_badge_style_for(const std::string &badge)
         return {"⛃", blue};
     if (key.find("yellowwhale") != std::string::npos || key.find("whaleyellow") != std::string::npos)
         return {"⛃", yellow};
+    if (key.find("graywhale") != std::string::npos || key.find("whalegray") != std::string::npos ||
+        key.find("greywhale") != std::string::npos || key.find("whalegrey") != std::string::npos)
+        return {"⛃", light_gray};
     if (key.find("subscriber") != std::string::npos || key == "sub")
         return {"♜", red};
     if (key.find("premium") != std::string::npos) return {"▶", green};

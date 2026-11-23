@@ -246,7 +246,7 @@ bool alerts_play(beep_boop_alerts_data *alerts, beep_boop_alert_type type)
 }
 
 static const std::vector<std::string> test_badges = {
-    "admin", "moderator", "supporter", "whale-blue", "whale-yellow", "subscriber"
+    "admin", "moderator", "supporter", "whale-blue", "whale-yellow", "whale-gray", "subscriber"
 };
 
 static uint32_t random_username_color()
@@ -287,8 +287,8 @@ void alerts_init(beep_boop_alerts_data *alerts, obs_source_t *parent, obs_data_t
     read_video_settings(alerts, settings);
     alerts->label_source = create_alert_text_source("BeepBoop Alert Name", "", 0xFFFFFFFF, alerts->alert_font_face, alerts->alert_font_size);
     alerts->prefix_source = create_alert_text_source("BeepBoop Alert Prefix", "", 0xFFFFFFFF, alerts->alert_font_face, alerts->alert_font_size);
-    alerts->badge_sources.reserve(6);
-    for (int i = 0; i < 6; ++i) {
+    alerts->badge_sources.reserve(7);
+    for (int i = 0; i < 7; ++i) {
         const std::string name = "BeepBoop Alert Badge " + std::to_string(i + 1);
         alerts->badge_sources.push_back(create_alert_text_source(name.c_str(), "", 0xFFFFFFFF,
             alerts->alert_font_face, alerts->alert_font_size));

@@ -234,7 +234,11 @@ static void fetch_and_play_tts(beep_boop_chatterbox_data *cb, const std::string 
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)payload_str.size());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, chatterbox_write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &res);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
+    // Voice cloning can take substantially longer than ordinary TTS.
+    // Do not abort a valid generation just because it exceeds 15 seconds.
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 120L);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
 
     CURLcode code = curl_easy_perform(curl);
     long status = 0;
@@ -243,6 +247,10 @@ static void fetch_and_play_tts(beep_boop_chatterbox_data *cb, const std::string 
     curl_slist_free_all(headers);
 
     const bool request_ok = code == CURLE_OK && status >= 200 && status < 300;
+    if (!request_ok) {
+        blog(LOG_WARNING, "[BeepBoop] Chatterbox TTS failed (curl=%d, HTTP=%ld, voice=%s, text_chars=%zu).",
+             static_cast<int>(code), status, is_ref ? "reference" : "predefined", text.size());
+    }
     if (configured_url == chatterbox_get_url(cb))
         set_chatterbox_connected(cb, request_ok);
     bool playback_started = false;
@@ -262,8 +270,12 @@ static void fetch_and_play_tts(beep_boop_chatterbox_data *cb, const std::string 
         if (res.body.size() < 12 ||
             res.body.compare(0, 4, "RIFF") != 0 ||
             res.body.compare(8, 4, "WAVE") != 0) {
+            blog(LOG_WARNING, "[BeepBoop] Chatterbox returned non-WAV audio (bytes=%zu, text_chars=%zu).",
+                 res.body.size(), text.size());
             return;
         }
+        blog(LOG_INFO, "[BeepBoop] Chatterbox WAV ready (bytes=%zu, text_chars=%zu, voice=%s).",
+             res.body.size(), text.size(), is_ref ? "reference" : "predefined");
 
         std::ofstream outfile(temp_path, std::ios::binary | std::ios::trunc);
         if (!outfile.is_open()) {
@@ -352,6 +364,8 @@ static void chatterbox_queue_worker(beep_boop_chatterbox_data *cb) {
             cb->tts_queue.pop_front();
         }
 
+        // Exactly one outgoing TTS request per queued message. Never split mimic
+        // text into extra requests or regenerate username narration.
         fetch_and_play_tts(cb, message.first, message.second);
     }
 }
@@ -576,47 +590,84 @@ static std::string voice_command_key(const std::string &value)
     return key;
 }
 
+// Accept both "!robocop hello" and "!mimic robocop hello".
+// Parsing selects the requested voice and speech; only the later exclusive
+// gate decides whether the request is sent using a cloned voice.
+static bool chatterbox_parse_mimic(const std::string &text,
+                                  std::string &requested_voice,
+                                  std::string &spoken_text)
+{
+    const size_t start = text.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos || text[start] != '!') return false;
+
+    const size_t first_end = text.find_first_of(" \t\r\n", start);
+    if (first_end == std::string::npos) return false;
+
+    const std::string first = text.substr(start + 1, first_end - start - 1);
+    const size_t next_start = text.find_first_not_of(" \t\r\n", first_end);
+    if (next_start == std::string::npos) return false;
+
+    size_t speech_start = next_start;
+    if (voice_command_key(first) == "mimic") {
+        const size_t voice_end = text.find_first_of(" \t\r\n", next_start);
+        if (voice_end == std::string::npos) return false;
+        requested_voice = text.substr(next_start, voice_end - next_start);
+        speech_start = text.find_first_not_of(" \t\r\n", voice_end);
+        if (speech_start == std::string::npos) return false;
+    } else {
+        requested_voice = first;
+    }
+
+    spoken_text = text.substr(speech_start);
+    return !voice_command_key(requested_voice).empty() && !spoken_text.empty();
+}
+
+static std::string chatterbox_resolve_voice(beep_boop_chatterbox_data *cb,
+                                           const std::string &requested)
+{
+    const std::string key = voice_command_key(requested);
+    if (key == "default") return "default";
+    std::lock_guard<std::mutex> lock(cb->voices_mutex);
+    for (const auto &item : cb->available_voices) {
+        if (voice_command_key(item.name) == key ||
+            voice_command_key(item.voice_id) == key ||
+            (item.voice_id.rfind("ref_", 0) == 0 &&
+             voice_command_key(chatterbox_voice_display_name(item.voice_id.substr(4))) == key))
+            return item.voice_id;
+    }
+    return {};
+}
+
 void chatterbox_speak_chat(beep_boop_chatterbox_data *cb,
                            const std::string &username,
-                           const std::string &text) {
-    if (!cb || !cb->enable_chat_vo || cb->shutting_down.load())
-        return;
+                           const std::string &text)
+{
+    if (!cb || !cb->enable_chat_vo || cb->shutting_down.load()) return;
 
-    if (text.size() > 1 && text[0] == '!') {
-        const size_t end = text.find_first_of(" \t\r\n", 1);
-        const std::string command = text.substr(1, end == std::string::npos
-                                                    ? std::string::npos : end - 1);
-        const std::string key = voice_command_key(command);
-        if (!key.empty() && end != std::string::npos) {
-            const size_t message_start = text.find_first_not_of(" \t\r\n", end);
-            if (message_start != std::string::npos) {
-                const std::string message = text.substr(message_start);
-                std::string voice;
-                if (key == "default") voice = "default";
-                {
-                    std::lock_guard<std::mutex> lock(cb->voices_mutex);
-                    for (const auto &item : cb->available_voices) {
-                        if (voice_command_key(item.name) == key ||
-                            voice_command_key(item.voice_id) == key ||
-                            (item.voice_id.rfind("ref_", 0) == 0 &&
-                             voice_command_key(chatterbox_voice_display_name(
-                                 item.voice_id.substr(4))) == key)) {
-                            voice = item.voice_id;
-                            break;
-                        }
-                    }
-                }
-                if (!voice.empty()) {
-                    chatterbox_enqueue_tts(cb, message, voice);
-                } else {
-                    chatterbox_enqueue_tts(cb, username + " says in a " + command +
-                                           " voice: " + message, cb->chat_voice);
-                }
-                return;
-            }
+    std::string requested_voice, spoken_text;
+    const bool command_valid = chatterbox_parse_mimic(text, requested_voice, spoken_text);
+    const std::string resolved_voice = command_valid
+        ? chatterbox_resolve_voice(cb, requested_voice) : std::string{};
+    const bool is_mimic = command_valid && !resolved_voice.empty();
+
+    // Hard, exclusive gate. Resolve text and voice together, enqueue once.
+    if (is_mimic) {
+        // MIMIC: the username and command NEVER enter the TTS payload.
+        blog(LOG_INFO, "[BeepBoop] Chatterbox mimic selected (voice=%s, text_chars=%zu).",
+             requested_voice.c_str(), spoken_text.size());
+        chatterbox_enqueue_tts(cb, spoken_text, resolved_voice);
+    } else {
+        // NORMAL: chat voice, with conventional username narration.
+        // An unavailable mimic voice is described verbally rather than cloned.
+        if (command_valid) {
+            blog(LOG_WARNING, "[BeepBoop] Chatterbox mimic voice unavailable (voice=%s).",
+                 requested_voice.c_str());
+            chatterbox_enqueue_tts(cb, username + " says in a " + requested_voice +
+                                   " voice: " + spoken_text, cb->chat_voice);
+        } else {
+            chatterbox_enqueue_tts(cb, username + " says: " + text, cb->chat_voice);
         }
     }
-    chatterbox_enqueue_tts(cb, username + " says: " + text, cb->chat_voice);
 }
 
 void chatterbox_speak_rant(beep_boop_chatterbox_data *cb,

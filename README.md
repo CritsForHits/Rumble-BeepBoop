@@ -57,6 +57,11 @@ Commercial-Free, including assets.
 - Fixed Likes VFX, no longer loops.
 - Renamed Male_1 and Male_2 to MaleA and MaleB (Stop confusion for mimic)
 
+## 0.42
+
+- Fixed !mimic function
+- Added grey whale badge
+
 ## Chatterbox
 
 Chatterbox is open sourced (here on GitHub) AI TTS.
