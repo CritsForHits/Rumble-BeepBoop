@@ -110,8 +110,6 @@ static void alerts_stop_likes(beep_boop_alerts_data *alerts)
     if (!alerts) return;
     alerts->likes_active.store(false);
     alerts->likes_media_started.store(false);
-    alerts->likes_loop_audio_muted.store(false);
-    alerts->likes_loop_iteration.store(1);
     if (auto *source = alerts->media_sources[ALERT_LIKES]) {
         obs_source_media_stop(source);
         obs_source_set_audio_mixers(source, alerts->media_audio_mixers[ALERT_LIKES]);
@@ -181,6 +179,7 @@ static void read_video_settings(beep_boop_alerts_data *alerts, obs_data_t *setti
     alerts->video_y_percent = std::clamp((int)obs_data_get_int(settings, "video_y_percent"), 0, 100);
     alerts->likes_x_percent = std::clamp((int)obs_data_get_int(settings, "likes_x_percent"), 0, 100);
     alerts->likes_y_percent = std::clamp((int)obs_data_get_int(settings, "likes_y_percent"), 0, 100);
+    alerts->likes_vfx_size = std::clamp((int)obs_data_get_int(settings, "likes_vfx_size"), 8, 4096);
     alerts->video_width = std::clamp((int)obs_data_get_int(settings, "video_width"), 8, 4096);
     alerts->video_height = std::clamp((int)obs_data_get_int(settings, "video_height"), 8, 4096);
     alerts->alert_font_size = std::clamp((int)obs_data_get_int(settings, "alert_font_size"), 8, 256);
@@ -206,9 +205,7 @@ bool alerts_play(beep_boop_alerts_data *alerts, beep_boop_alert_type type)
         obs_source_set_monitoring_type(source, OBS_MONITORING_TYPE_NONE);
         alerts->likes_start_time = now;
         alerts->likes_media_started.store(false);
-        alerts->likes_loop_audio_muted.store(false);
-        alerts->likes_loop_iteration.store(1);
-        alerts->likes_active.store(true);
+                alerts->likes_active.store(true);
         obs_source_media_restart(source);
         return true;
     }
@@ -381,10 +378,12 @@ void alerts_add_properties(obs_properties_t *props, beep_boop_alerts_data *alert
         obs_properties_add_button2(props, (std::string("test_") + media_keys[i]).c_str(),
             (std::string("Test ") + media_labels[i]).c_str(), test_cb, alerts);
         if (i == ALERT_RANT) {
-            obs_property_t *likes_x = obs_properties_add_int_slider(props, "likes_x_percent", "Likes - X", 0, 100, 1);
+            obs_property_t *likes_x = obs_properties_add_int_slider(props, "likes_x_percent", "Likes X", 0, 100, 1);
             obs_property_int_set_suffix(likes_x, " %");
             obs_property_t *likes_y = obs_properties_add_int_slider(props, "likes_y_percent", "Likes Y", 0, 100, 1);
             obs_property_int_set_suffix(likes_y, " %");
+            obs_property_t *likes_size = obs_properties_add_int_slider(props, "likes_vfx_size", "Likes VFX Size", 8, 4096, 1);
+            obs_property_int_set_suffix(likes_size, " px");
             obs_properties_add_path(props, media_keys[ALERT_LIKES], media_labels[ALERT_LIKES], OBS_PATH_FILE,
                 "Media Files (*.mp3 *.wav *.ogg *.flac *.mp4 *.mkv *.webm);;All Files (*.*)", nullptr);
             obs_properties_add_button2(props, (std::string("test_") + media_keys[ALERT_LIKES]).c_str(),
@@ -561,34 +560,21 @@ void alerts_video_render(beep_boop_alerts_data *alerts)
         alerts->likes_media_started.store(true);
     if ((state == OBS_MEDIA_STATE_ENDED || state == OBS_MEDIA_STATE_STOPPED) &&
         alerts->likes_media_started.exchange(false)) {
-        bool repeat = false;
-        int count = 1;
-        {
-            std::lock_guard<std::mutex> lock(alerts->cooldown_mutex);
-            repeat = alerts->loop_enabled;
-            count = alerts->loop_count;
-        }
-        if (repeat && !is_audio_only_media(alerts->media_paths[ALERT_LIKES]) &&
-            alerts->likes_loop_iteration.load() < count) {
-            alerts->likes_loop_iteration.fetch_add(1);
-            obs_source_set_audio_mixers(source, 0);
-            obs_source_set_monitoring_type(source, OBS_MONITORING_TYPE_NONE);
-            alerts->likes_loop_audio_muted.store(true);
-            obs_source_media_restart(source);
-        } else alerts_stop_likes(alerts);
+        // Likes VFX always plays once, regardless of the normal alert loop setting.
+        alerts_stop_likes(alerts);
         return;
     }
     if (state == OBS_MEDIA_STATE_ERROR) { alerts_stop_likes(alerts); return; }
-    if (alerts->video_width <= 0 || alerts->video_height <= 0) return;
+    if (alerts->likes_vfx_size <= 0 || alerts->likes_vfx_size <= 0) return;
     obs_video_info vi = {};
     if (!obs_get_video_info(&vi) || !vi.base_width || !vi.base_height) return;
     uint32_t sw = obs_source_get_width(source), sh = obs_source_get_height(source);
-    if (!sw || !sh) { sw = alerts->video_width; sh = alerts->video_height; }
+    if (!sw || !sh) { sw = alerts->likes_vfx_size; sh = alerts->likes_vfx_size; }
     const float x = alerts->likes_x_percent * vi.base_width / 100.0f;
     const float y = alerts->likes_y_percent * vi.base_height / 100.0f;
     gs_matrix_push();
     gs_matrix_translate3f(x, y, 0.0f);
-    gs_matrix_scale3f((float)alerts->video_width / sw, (float)alerts->video_height / sh, 1.0f);
+    gs_matrix_scale3f((float)alerts->likes_vfx_size / sw, (float)alerts->likes_vfx_size / sh, 1.0f);
     obs_source_video_render(source);
     gs_matrix_pop();
     // Likes VFX deliberately never renders an alert text source.
@@ -616,7 +602,7 @@ bool alerts_audio_render(beep_boop_alerts_data *alerts, uint64_t *ts_out,
         if (likes && std::chrono::duration_cast<std::chrono::seconds>(
                 now - alerts->likes_start_time).count() >= alerts->alert_max_duration.load())
             continue;
-        if (likes ? alerts->likes_loop_audio_muted.load() : alerts->loop_audio_muted.load()) continue;
+        if (alerts->loop_audio_muted.load()) continue;
         auto *source = alerts->media_sources[index];
         if (!source) continue;
         const uint64_t timestamp = obs_source_get_audio_timestamp(source);

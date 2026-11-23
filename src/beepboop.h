@@ -79,8 +79,6 @@ struct beep_boop_alerts_data {
     // Independent Likes VFX: not subject to regular alert cooldown or text.
     std::atomic<bool> likes_active{false};
     std::atomic<bool> likes_media_started{false};
-    std::atomic<bool> likes_loop_audio_muted{false};
-    std::atomic<int> likes_loop_iteration{1};
     std::chrono::steady_clock::time_point likes_start_time{};
 
     std::chrono::steady_clock::time_point alert_start_time{};
@@ -97,8 +95,9 @@ struct beep_boop_alerts_data {
     bool alerts_enabled = true;
     int video_x_percent = 0;
     int video_y_percent = 0;
-    int likes_x_percent = 40;
-    int likes_y_percent = 95;
+    int likes_x_percent = 78;
+    int likes_y_percent = 90;
+    int likes_vfx_size = 256;
     int video_width = 512;
     int video_height = 512;
     int alert_font_size = 32;

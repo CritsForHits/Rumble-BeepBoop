@@ -901,8 +901,9 @@ bool obs_module_load(void) {
         obs_data_set_default_string(s, "donation_media", "");
         obs_data_set_default_int(s, "video_x_percent", 60);
         obs_data_set_default_int(s, "video_y_percent", 30);
-        obs_data_set_default_int(s, "likes_x_percent", 40);
-        obs_data_set_default_int(s, "likes_y_percent", 95);
+        obs_data_set_default_int(s, "likes_x_percent", 78);
+        obs_data_set_default_int(s, "likes_y_percent", 90);
+        obs_data_set_default_int(s, "likes_vfx_size", 256);
         obs_data_set_default_int(s, "video_width", 512);
         obs_data_set_default_int(s, "video_height", 512);
         obs_data_set_default_int(s, "goal_x", 75);

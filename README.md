@@ -52,6 +52,11 @@ Commercial-Free, including assets.
 (Requires you to have a voice file matching. E.G. spongebob.wav - user's input !spongebob Hi - voice in spongebob "Hi")
 - New additional assets - Check them out!
 
+## 0.41
+
+- Fixed Likes VFX, no longer loops.
+- Renamed Male_1 and Male_2 to MaleA and MaleB (Stop confusion for mimic)
+
 ## Chatterbox
 
 Chatterbox is open sourced (here on GitHub) AI TTS.
