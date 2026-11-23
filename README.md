@@ -8,7 +8,7 @@
 
 Apache 2.0 + Common Clause
 
-[0.4 Beta demo - Status](https://rumble.com/v7iscsu-rumble-bb-demo.html)
+[0.4 Beta demo - Status](https://rumble.com/v7ismzw-obs-rumble-bb-plugin-0.41-demo.html)
 
 </div>
 
