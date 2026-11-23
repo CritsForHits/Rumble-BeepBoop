@@ -8,7 +8,7 @@
 
 Apache 2.0 + Common Clause
 
-[Tutorial] (https://rumble.com/v7ifv3i-rumble-beepboop-tutorial.html?e9s=src_v1_upp_a)
+(Working on New Demo / Tutorial Video - Hang Tight)
 
 </div>
 
@@ -49,6 +49,8 @@ Commercial-Free, including assets.
 - Fixed chatterbox's refresh connection to work if chatterbox was previously dc'd.
 - Added Likes VFX (Remind user to hit that thumbs up without you saying it)
 - Added !voice mimic for viewer fun.
+(Requires you to have a voice file matching. E.G. spongebob.wav - user's input !spongebob Hi - voice in spongebob "Hi")
+- New additional assets - Check them out!
 
 ## Chatterbox
 
@@ -92,7 +94,7 @@ Feel safe to use this commercially free in your Rumble stream.
 
 All assets used in this plugin were made with Apache 2.0 license and royalty free media.
 
-(Note: Animations were done with BiRefNet and LTX: LTX is commercially free for under 10 million dollars annual revenue.)
+(Note: Animations were done with LTX: LTX is commercially free for under 10 million dollars annual revenue.)
 
 (Final Note: I'm not a lawyer, this isn't legal advice. Use at your own risk.)
 
