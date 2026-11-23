@@ -8,7 +8,7 @@
 
 Apache 2.0 + Common Clause
 
-(Working on New Demo / Tutorial Video - Hang Tight)
+[0.4 Beta demo - Status](https://rumble.com/v7iscsu-rumble-bb-demo.html)
 
 </div>
 
